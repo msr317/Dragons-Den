@@ -1,0 +1,215 @@
+rm(list = ls()) # clear environment
+options(scipen = 999) # Disable scientific notations
+library(tidyverse)
+
+##parameters
+n_cycles <- 40 #cycles = years 
+r_d_effects <- 0.015 # annual discount rate, health effects
+r_d_costs <- 0.04 # annual discount rate, costs
+v_names_hs <- c("WNS", "WWS", "SL", "OS") 
+n_hs <- length(v_names_hs) # number of health states
+n_ind <- 10000 # number of individuals to simulate  
+v_start_hs <- c(n_ind, 0, 0, 0) # vector of starting position in the model 
+m_hs[1,] <- v_start_hs
+
+##probabilities of transitioning 
+## NO MONETORING
+p_A <- 0.33
+p_B <- 0.03
+p_C <- 0.83
+p_D <- 0.27
+p_E <- 0.53
+p_F <- 0.59
+p_G <- 0.17 # WWS:OS
+p_H <- 0.17 # SL:OS
+p_I <- 0.08 # WNS:OS
+p_J <- 1    # OS:OS
+
+##transition matrix ## NO MONETORING
+v_names_hs <- c("WNS", "WWS", "SL", "OS")
+m_tp <- matrix(0,
+               ncol = 4,
+               nrow = 4,
+               dimnames = list(v_names_hs,
+                               v_names_hs))
+m_tp
+m_tp["WNS", "WNS"] <- p_F
+m_tp["WNS", "WWS"] <- p_A
+m_tp["WNS", "OS"] <- p_I
+
+m_tp["WWS", "WWS"] <- p_E
+m_tp["WWS", "WNS"] <- p_D
+m_tp["WWS", "SL"] <- p_B
+m_tp["WWS", "OS"] <- p_G
+
+m_tp["SL", "WNS"] <- p_C
+m_tp["SL", "OS"] <- p_H
+m_tp["OS", "OS"] <- p_J
+
+##cohort simulation ##NO MONETORING
+m_hs <- matrix(0,
+               nrow = n_cycles + 1,
+               ncol = length(v_names_hs),
+               dimnames = list(c(0:n_cycles),
+                               v_names_hs))
+m_hs
+for(cycle in 1:n_cycles){
+  # For your matrix of health state
+  m_hs[cycle + 1, ] <- m_hs[cycle, ] %*% m_tp # matrix multiplication
+}
+
+##visualize cohort simulation
+plot(y = m_hs[ , "WNS"] / n_ind,
+     x = rownames(m_hs),
+     type = "l",
+     main = "State membership over 40 years",
+     xlab = "Years",
+     ylab = "Proportion of ED nurses",
+     ylim = c(0,1))
+lines(y = m_hs[ , "WWS"] / n_ind,
+      x = rownames(m_hs),
+      col = "red")
+lines(y = m_hs[ , "SL"] / n_ind,
+      x = rownames(m_hs),
+      col = "blue")
+lines(y = m_hs[ ,"OS"] / n_ind,
+      x = rownames(m_hs),
+      col = "green")
+
+## costs not discounted
+cost_nm <- c(0, 0, 60000, 11375)
+
+cost_data_nm <- t(t(m_hs)*cost_nm)
+cost_data_nm
+rowSums(cost_data_nm)
+nodis_tot_cost <- sum(rowSums(cost_data_nm)) # per 10 000 nurses over 40 years
+nodis_tot_cost / 10000 # 376.295,20 per nurse over 40 years
+
+## effects not discounted
+effect <- c(0.94, 0.76, 0.76, 0.94)
+effect_data_nm <- t(t(m_hs)*effect)
+effect_data_nm
+nodis_tot_effect <- sum(rowSums(effect_data_nm)) # per 10 000 nurses over 40 years
+nodis_tot_effect / 10000 # 37.90 QALYs per nurse over 40 years
+
+## discount factor
+v_disc_cost <- 1 / (1+r_d_costs)^c(0:40)
+v_disc_effect <- 1 / (1+r_d_effects)^c(0:40)
+
+## costs discounted
+rowSums(cost_data_nm) * v_disc_cost
+sum(rowSums(cost_data_nm) * v_disc_cost)
+dis_tot_cost <- sum(rowSums(cost_data_nm) * v_disc_cost) / 10000 ## with monetoring 156.820,40 vs. no monetoring 165.212,30
+dis_tot_cost
+
+## effects discounted
+rowSums(effect_data_nm) * v_disc_effect
+sum(rowSums(effect_data_nm) * v_disc_effect)
+dis_tot_cost <- sum(rowSums(effect_data_nm) * v_disc_effect) / 10000 ## with monetoring 28 QALYs vs. no monetoring 28.49
+dis_tot_cost
+
+#############################################################################################################################
+
+##probabilities of transitioning 
+## MONETORING
+p_A2 <- 0.33
+p_B2 <- 0.01
+p_C2 <- 0.83
+p_D2 <- 0.60
+p_E2 <- 0.22
+p_F2 <- 0.59
+p_G2 <- 0.17 # WWS:OS
+p_H2 <- 0.17 # SL:OS
+p_I2 <- 0.08 # WNS:OS
+p_J2 <- 1    # OS:OS
+
+##transition matrix ## NO MONETORING
+v_names_hs <- c("WNS", "WWS", "SL", "OS")
+m_tp <- matrix(0,
+               ncol = 4,
+               nrow = 4,
+               dimnames = list(v_names_hs,
+                               v_names_hs))
+m_tp
+m_tp["WNS", "WNS"] <- p_F2
+m_tp["WNS", "WWS"] <- p_A2
+m_tp["WNS", "OS"] <- p_I2
+
+m_tp["WWS", "WWS"] <- p_E2
+m_tp["WWS", "WNS"] <- p_D2
+m_tp["WWS", "SL"] <- p_B2
+m_tp["WWS", "OS"] <- p_G2
+
+m_tp["SL", "WNS"] <- p_C2
+m_tp["SL", "OS"] <- p_H2
+m_tp["OS", "OS"] <- p_J2
+
+##cohort simulation ##NO MONETORING
+m_hs <- matrix(0,
+               nrow = n_cycles + 1,
+               ncol = length(v_names_hs),
+               dimnames = list(c(0:n_cycles),
+                               v_names_hs))
+m_hs
+for(cycle in 1:n_cycles){
+  # For your matrix of health state
+  m_hs[cycle + 1, ] <- m_hs[cycle, ] %*% m_tp # matrix multiplication
+}
+
+##visualize cohort simulation
+plot(y = m_hs[ , "WNS"] / n_ind,
+     x = rownames(m_hs),
+     type = "l",
+     main = "State membership over 40 years",
+     xlab = "Years",
+     ylab = "Proportion of ED nurses",
+     ylim = c(0,1))
+lines(y = m_hs[ , "WWS"] / n_ind,
+      x = rownames(m_hs),
+      col = "red")
+lines(y = m_hs[ , "SL"] / n_ind,
+      x = rownames(m_hs),
+      col = "blue")
+lines(y = m_hs[ ,"OS"] / n_ind,
+      x = rownames(m_hs),
+      col = "green")
+
+## costs not discounted
+cost_m <- c(0, 0, 60900, 11375)
+
+cost_data_m <- t(t(m_hs)*cost_m)
+rowSums(cost_data_m)
+nodis_tot_cost <- sum(rowSums(cost_data_m)) # per 10 000 nurses over 40 years
+nodis_tot_cost / 10000 # 376.295,20 per nurse over 40 years
+
+## effects not discounted
+effect <- c(0.94, 0.76, 0.76, 0.94)
+effect_data_m <- t(t(m_hs)*effect)
+nodis_tot_effect <- sum(rowSums(effect_data_m)) # per 10 000 nurses over 40 years
+nodis_tot_effect / 10000 # 37.90 QALYs per nurse over 40 years
+
+## discount factor
+v_disc_cost <- 1 / (1+r_d_costs)^c(0:40)
+v_disc_effect <- 1 / (1+r_d_effects)^c(0:40)
+
+## costs discounted
+rowSums(cost_data_m) * v_disc_cost
+sum(rowSums(cost_data_m) * v_disc_cost)
+dis_tot_cost <- sum(rowSums(cost_data_m) * v_disc_cost) / 10000 ## with monetoring 156.820,40 vs. no monetoring 165.212,30
+dis_tot_cost
+
+## effects discounted
+rowSums(effect_data_m) * v_disc_effect
+sum(rowSums(effect_data_m) * v_disc_effect)
+dis_tot_cost <- sum(rowSums(effect_data_m) * v_disc_effect) / 10000 ## with monetoring 28,62 QALYs vs. no monetoring 28.49
+dis_tot_cost
+
+ddcost <- 156820.40 - 165212.30 # pay 8391.90 less
+ddcost
+ddeffect <- 28.62 - 28.49 # gain 0.13 QALY
+ddeffect
+dICUR <- ddcost / ddeffect
+dICUR
+
+########################################################################################################################################
+
